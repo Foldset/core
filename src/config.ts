@@ -12,7 +12,7 @@ export class CachedConfigManager<TStored, TCached = TStored> {
   constructor(
     protected configStore: ConfigStore,
     protected key: string,
-  ) {}
+  ) { }
 
   protected isCacheValid(): boolean {
     return this.cached !== null && Date.now() - this.cacheTimestamp < CACHE_TTL_MS;
@@ -129,12 +129,17 @@ export class ApiKeyManager extends CachedConfigManager<string> {
 
   constructor(storeOrKey: ConfigStore | string) {
     if (typeof storeOrKey === "string") {
-      super({ get: async () => null, put: async () => {} }, "api-key");
+      super({ get: async () => null, put: async () => { } }, "api-key");
       this.staticKey = storeOrKey;
     } else {
       super(storeOrKey, "api-key");
       this.staticKey = null;
     }
+  }
+
+  // If storing api key in a config store, store the raw value, not a json version of it
+  protected override deserialize(raw: string): string {
+    return raw;
   }
 
   override async get(): Promise<string | null> {
