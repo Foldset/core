@@ -1,3 +1,37 @@
+import type { HTTPAdapter } from "@x402/core/server";
+
+export interface RequestAdapter extends HTTPAdapter {
+  getIpAddress(): string | null;
+}
+
+export interface ConfigStore {
+  get(key: string): Promise<string | null>;
+  put(key: string, value: string): Promise<void>;
+}
+
+export interface ErrorReporter {
+  captureException(error: unknown, extra?: Record<string, unknown>): void;
+}
+
+export const consoleErrorReporter: ErrorReporter = {
+  captureException(error: unknown) {
+    console.error(error);
+  },
+};
+
+export type EventPayload = {
+  method: string;
+  status_code: number;
+  user_agent: string | null;
+  referer?: string | null;
+  href: string;
+  hostname: string;
+  pathname: string;
+  search: string;
+  ip_address?: string | null;
+  payment_response?: string;
+};
+
 export interface Restriction {
   host: string;
   path: string;
