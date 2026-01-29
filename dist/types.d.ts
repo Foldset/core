@@ -1,6 +1,7 @@
 import type { HTTPAdapter } from "@x402/core/server";
 export interface RequestAdapter extends HTTPAdapter {
     getIpAddress(): string | null;
+    getHost(): string;
 }
 export interface ConfigStore {
     get(key: string): Promise<string | null>;
@@ -24,6 +25,7 @@ export type EventPayload = {
 };
 export interface Restriction {
     host: string;
+    subdomains: string[];
     path: string;
     description: string;
     price: number;

@@ -1,6 +1,25 @@
+function hasMatchingHost(restrictions, hostname) {
+    const normalizedHostname = hostname.toLowerCase();
+    return restrictions.some((r) => {
+        const normalizedHost = r.host.toLowerCase();
+        if (normalizedHostname === normalizedHost)
+            return true;
+        for (const subdomain of r.subdomains) {
+            if (subdomain && `${subdomain.toLowerCase()}.${normalizedHost}` === normalizedHostname) {
+                return true;
+            }
+        }
+        return false;
+    });
+}
 export async function handlePaymentRequest(core, httpServer, adapter) {
     const userAgent = adapter.getUserAgent();
     if (!userAgent || !(await core.aiCrawlers.isAiCrawler(userAgent))) {
+        return { type: "no-payment-required" };
+    }
+    // Check if the request hostname matches any configured restriction
+    const restrictions = await core.restrictions.get();
+    if (!restrictions || !hasMatchingHost(restrictions, adapter.getHost())) {
         return { type: "no-payment-required" };
     }
     const paymentContext = {
