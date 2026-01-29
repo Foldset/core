@@ -6,6 +6,34 @@ const paywallProvider = {
     generateHtml: generatePaywallHtml,
 };
 /**
+ * Custom parseRoutePattern that treats the path as a raw regex.
+ * Monkey-patched onto x402HTTPResourceServer instances so that
+ * restriction paths (stored as regex in the DB) are used directly
+ * instead of being converted by x402's glob-like pattern parser.
+ */
+function foldsetParseRoutePattern(pattern) {
+    const [verb, path] = pattern.includes(" ") ? pattern.split(/\s+/) : ["*", pattern];
+    return { verb: verb.toUpperCase(), regex: new RegExp(path, "i") };
+}
+/**
+ * Custom normalizePath that strips query/hash and normalizes slashes.
+ * Monkey-patched onto x402HTTPResourceServer instances.
+ */
+function foldsetNormalizePath(path) {
+    const pathWithoutQuery = path.split(/[?#]/)[0];
+    let decoded;
+    try {
+        decoded = decodeURIComponent(pathWithoutQuery);
+    }
+    catch {
+        decoded = pathWithoutQuery;
+    }
+    return decoded
+        .replace(/\\/g, "/")
+        .replace(/\/+/g, "/")
+        .replace(/(.+?)\/+$/, "$1");
+}
+/**
  * Custom createHTTPResponse implementation for Foldset.
  * Monkey-patched onto x402HTTPResourceServer instances to always return
  * HTML paywall content with payment requirement headers.
@@ -56,7 +84,11 @@ export class HttpServerManager {
         registerExactSvmScheme(server);
         const routesConfig = buildRoutesConfig(currentRestrictions, currentPaymentMethods);
         const httpServer = new x402HTTPResourceServer(server, routesConfig);
-        // Monkey-patch createHTTPResponse with our custom implementation
+        // Monkey-patch private methods with our custom implementations
+        // @ts-expect-error - overriding private method
+        httpServer.parseRoutePattern = foldsetParseRoutePattern;
+        // @ts-expect-error - overriding private method
+        httpServer.normalizePath = foldsetNormalizePath;
         // @ts-expect-error - overriding private method
         httpServer.createHTTPResponse = createFoldsetHTTPResponse;
         await httpServer.initialize();
