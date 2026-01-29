@@ -33,6 +33,8 @@ export type EventPayload = {
   payment_response?: string;
 };
 
+// TODO rfradkin: Consider breaking this up...
+// hosts + subdomains is a lot, not to mention price and path etc
 export interface Restriction {
   host: string;
   subdomains: string[];

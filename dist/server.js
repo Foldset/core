@@ -83,12 +83,13 @@ export class HttpServerManager {
         registerExactEvmScheme(server);
         registerExactSvmScheme(server);
         const routesConfig = buildRoutesConfig(currentRestrictions, currentPaymentMethods);
+        // Monkey-patch prototype BEFORE construction so parseRoutePattern
+        // and normalizePath are used during constructor initialization
+        // @ts-expect-error - overriding private method
+        x402HTTPResourceServer.prototype.parseRoutePattern = foldsetParseRoutePattern;
+        // @ts-expect-error - overriding private method
+        x402HTTPResourceServer.prototype.normalizePath = foldsetNormalizePath;
         const httpServer = new x402HTTPResourceServer(server, routesConfig);
-        // Monkey-patch private methods with our custom implementations
-        // @ts-expect-error - overriding private method
-        httpServer.parseRoutePattern = foldsetParseRoutePattern;
-        // @ts-expect-error - overriding private method
-        httpServer.normalizePath = foldsetNormalizePath;
         // @ts-expect-error - overriding private method
         httpServer.createHTTPResponse = createFoldsetHTTPResponse;
         await httpServer.initialize();
