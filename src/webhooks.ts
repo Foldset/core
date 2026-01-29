@@ -56,7 +56,16 @@ export class WebhookDispatcher {
     signature: string,
     apiKey: string,
   ): Promise<{ status: number; body: string }> {
-    const isValid = await verifySignature(body, signature, apiKey);
+    // Signature may be comma-separated (multi-key rotation).
+    // Accept if any individual signature matches.
+    const signatures = signature.split(",");
+    let isValid = false;
+    for (const sig of signatures) {
+      if (await verifySignature(body, sig, apiKey)) {
+        isValid = true;
+        break;
+      }
+    }
     if (!isValid) {
       return { status: 401, body: "Invalid signature" };
     }
