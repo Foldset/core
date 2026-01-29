@@ -29,26 +29,6 @@ function foldsetParseRoutePattern(pattern: string): { verb: string; regex: RegEx
 }
 
 /**
- * Custom normalizePath that strips query/hash and normalizes slashes.
- * Monkey-patched onto x402HTTPResourceServer instances.
- */
-function foldsetNormalizePath(path: string): string {
-  const pathWithoutQuery = path.split(/[?#]/)[0];
-
-  let decoded: string;
-  try {
-    decoded = decodeURIComponent(pathWithoutQuery);
-  } catch {
-    decoded = pathWithoutQuery;
-  }
-
-  return decoded
-    .replace(/\\/g, "/")
-    .replace(/\/+/g, "/")
-    .replace(/(.+?)\/+$/, "$1");
-}
-
-/**
  * Custom createHTTPResponse implementation for Foldset.
  * Monkey-patched onto x402HTTPResourceServer instances to always return
  * HTML paywall content with payment requirement headers.
@@ -68,7 +48,7 @@ function createFoldsetHTTPResponse(
   const response = this.createHTTPPaymentRequiredResponse(paymentRequired);
 
   return {
-    status: 402 as 402,
+    status: 402,
     headers: {
       "Content-Type": "text/html",
       ...response.headers,
@@ -117,8 +97,6 @@ export class HttpServerManager {
     // and normalizePath are used during constructor initialization
     // @ts-expect-error - overriding private method
     x402HTTPResourceServer.prototype.parseRoutePattern = foldsetParseRoutePattern;
-    // @ts-expect-error - overriding private method
-    x402HTTPResourceServer.prototype.normalizePath = foldsetNormalizePath;
 
     const httpServer = new x402HTTPResourceServer(server, routesConfig);
 
