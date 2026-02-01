@@ -5,7 +5,7 @@ export interface RequestAdapter extends HTTPAdapter {
 }
 export interface ConfigStore {
     get(key: string): Promise<string | null>;
-    put(key: string, value: string): Promise<void>;
+    put?(key: string, value: string): Promise<void>;
 }
 export interface ErrorReporter {
     captureException(error: unknown, extra?: Record<string, unknown>): void;

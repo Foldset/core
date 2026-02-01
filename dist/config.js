@@ -31,7 +31,7 @@ export class CachedConfigManager {
         return this.cached;
     }
     async store(data) {
-        await this.configStore.put(this.key, JSON.stringify(data));
+        await this.configStore.put?.(this.key, JSON.stringify(data));
         this.updateCache(data);
     }
 }
@@ -66,7 +66,7 @@ export class AiCrawlersManager extends CachedConfigManager {
         return this.cached;
     }
     async store(data) {
-        await this.configStore.put(this.key, JSON.stringify(data));
+        await this.configStore.put?.(this.key, JSON.stringify(data));
         this.updateCache(data.map((c) => ({ user_agent: c.user_agent.toLowerCase() })));
     }
     async isAiCrawler(userAgent) {
@@ -94,7 +94,7 @@ export class FacilitatorManager extends CachedConfigManager {
         });
     }
     async store(config) {
-        await this.configStore.put(this.key, JSON.stringify(config));
+        await this.configStore.put?.(this.key, JSON.stringify(config));
         // Invalidate cache so next get() creates a new client
         this.invalidateCache();
     }
@@ -103,7 +103,7 @@ export class ApiKeyManager extends CachedConfigManager {
     staticKey;
     constructor(storeOrKey) {
         if (typeof storeOrKey === "string") {
-            super({ get: async () => null, put: async () => { } }, "api-key");
+            super({ get: async () => null }, "api-key");
             this.staticKey = storeOrKey;
         }
         else {
