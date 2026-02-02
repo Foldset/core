@@ -1,5 +1,5 @@
 import { HTTPFacilitatorClient } from "@x402/core/server";
-import type { Restriction, PaymentMethod, AiCrawler, FacilitatorConfig } from "./types";
+import type { Restriction, McpRestriction, PaymentMethod, AiCrawler, FacilitatorConfig } from "./types";
 
 import type { ConfigStore } from "./types";
 
@@ -54,6 +54,12 @@ export class RestrictionsManager extends CachedConfigManager<Restriction[]> {
 export class PaymentMethodsManager extends CachedConfigManager<PaymentMethod[]> {
   constructor(store: ConfigStore) {
     super(store, "payment-methods");
+  }
+}
+
+export class McpRestrictionsManager extends CachedConfigManager<McpRestriction[]> {
+  constructor(store: ConfigStore) {
+    super(store, "mcp-restrictions");
   }
 }
 

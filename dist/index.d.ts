@@ -1,5 +1,5 @@
 import type { ConfigStore, RequestAdapter, EventPayload, ErrorReporter } from "./types";
-import { RestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager } from "./config";
+import { RestrictionsManager, McpRestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager } from "./config";
 import { HttpServerManager } from "./server";
 import { WebhookDispatcher } from "./webhooks";
 export interface WorkerCoreOptions {
@@ -8,6 +8,7 @@ export interface WorkerCoreOptions {
 }
 export declare class WorkerCore {
     readonly restrictions: RestrictionsManager;
+    readonly mcpRestrictions: McpRestrictionsManager;
     readonly paymentMethods: PaymentMethodsManager;
     readonly aiCrawlers: AiCrawlersManager;
     readonly facilitator: FacilitatorManager;
@@ -19,13 +20,14 @@ export declare class WorkerCore {
     buildEventPayload(adapter: RequestAdapter, statusCode: number, paymentResponse?: string): EventPayload;
     sendEvent(payload: EventPayload): Promise<void>;
 }
-export type { Restriction, PaymentMethod, AiCrawler, FacilitatorConfig, FoldsetWebhook, ConfigStore, RequestAdapter, EventPayload, ErrorReporter, } from "./types";
+export type { Restriction, McpRestriction, PaymentMethod, AiCrawler, FacilitatorConfig, FoldsetWebhook, ConfigStore, RequestAdapter, EventPayload, ErrorReporter, } from "./types";
 export { consoleErrorReporter } from "./types";
 export { generatePaywallHtml } from "./paywall";
 export { buildRoutesConfig, priceToAmount } from "./routes";
 export { verifySignature } from "./webhooks";
-export { CachedConfigManager, RestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager, } from "./config";
+export { CachedConfigManager, RestrictionsManager, McpRestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager, } from "./config";
 export { HttpServerManager } from "./server";
 export { WebhookDispatcher } from "./webhooks";
+export { parseMcpRequest, getMcpRouteKey, } from "./mcp";
 export { handlePaymentRequest, handleSettlement, handleWebhookRequest } from "./handler";
 //# sourceMappingURL=index.d.ts.map

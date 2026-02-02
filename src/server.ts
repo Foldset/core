@@ -8,10 +8,10 @@ import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { registerExactSvmScheme } from "@x402/svm/exact/server";
 import type { UnpaidResponseResult, HTTPResponseInstructions, HTTPFacilitatorClient } from "@x402/core/http";
 
-import type { Restriction, PaymentMethod } from "./types";
+import type { Restriction, McpRestriction, PaymentMethod } from "./types";
 import { buildRoutesConfig, generatePaywallHtml } from "./index";
 
-import { RestrictionsManager, PaymentMethodsManager, FacilitatorManager } from "./config";
+import { RestrictionsManager, McpRestrictionsManager, PaymentMethodsManager, FacilitatorManager } from "./config";
 
 const paywallProvider: PaywallProvider = {
   generateHtml: generatePaywallHtml,
@@ -61,26 +61,30 @@ function createFoldsetHTTPResponse(
 export class HttpServerManager {
   private cachedHttpServer: x402HTTPResourceServer | null = null;
   private cachedRestrictions: Restriction[] | null = null;
+  private cachedMcpRestrictions: McpRestriction[] | null = null;
   private cachedPaymentMethods: PaymentMethod[] | null = null;
   private cachedFacilitator: HTTPFacilitatorClient | null = null;
 
   constructor(
     private restrictions: RestrictionsManager,
+    private mcpRestrictions: McpRestrictionsManager,
     private paymentMethods: PaymentMethodsManager,
     private facilitator: FacilitatorManager,
   ) { }
 
   async get(): Promise<x402HTTPResourceServer | null> {
     const currentRestrictions = await this.restrictions.get();
+    const currentMcpRestrictions = await this.mcpRestrictions.get();
     const currentPaymentMethods = await this.paymentMethods.get();
     const currentFacilitator = await this.facilitator.get();
-    if (currentRestrictions === null || currentPaymentMethods === null || currentFacilitator === null) {
+    if (currentRestrictions === null || currentMcpRestrictions === null || currentPaymentMethods === null || currentFacilitator === null) {
       return null;
     }
 
     if (
       this.cachedHttpServer &&
       currentRestrictions === this.cachedRestrictions &&
+      currentMcpRestrictions === this.cachedMcpRestrictions &&
       currentPaymentMethods === this.cachedPaymentMethods &&
       currentFacilitator === this.cachedFacilitator
     ) {
@@ -91,7 +95,11 @@ export class HttpServerManager {
     registerExactEvmScheme(server);
     registerExactSvmScheme(server);
 
-    const routesConfig = buildRoutesConfig(currentRestrictions, currentPaymentMethods);
+    const routesConfig = buildRoutesConfig(
+      currentRestrictions,
+      currentMcpRestrictions,
+      currentPaymentMethods,
+    );
 
     // Monkey-patch prototype BEFORE construction so parseRoutePattern
     // and normalizePath are used during constructor initialization
@@ -108,6 +116,7 @@ export class HttpServerManager {
 
     this.cachedHttpServer = httpServer;
     this.cachedRestrictions = currentRestrictions;
+    this.cachedMcpRestrictions = currentMcpRestrictions;
     this.cachedPaymentMethods = currentPaymentMethods;
 
     return httpServer;

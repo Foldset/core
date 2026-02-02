@@ -2,30 +2,35 @@ export function priceToAmount(priceUsd, decimals) {
     const amount = priceUsd * Math.pow(10, decimals);
     return Math.round(amount).toString();
 }
-export function buildRoutesConfig(restrictions, paymentMethods) {
-    const routesConfig = {};
-    for (const restriction of restrictions) {
-        routesConfig[restriction.path] = {
-            accepts: paymentMethods.map((paymentMethod) => ({
-                scheme: restriction.scheme,
-                price: {
-                    amount: priceToAmount(restriction.price, paymentMethod.decimals),
-                    asset: paymentMethod.contract_address,
-                    // eip712 required extra
-                    extra: {
-                        ...paymentMethod.extra,
-                        decimals: paymentMethod.decimals,
-                        chainDisplayName: paymentMethod.chain_display_name,
-                        assetDisplayName: paymentMethod.asset_display_name,
-                        price: restriction.price,
-                    },
+function buildRouteEntry(scheme, price, description, paymentMethods) {
+    return {
+        accepts: paymentMethods.map((pm) => ({
+            scheme,
+            price: {
+                amount: priceToAmount(price, pm.decimals),
+                asset: pm.contract_address,
+                extra: {
+                    ...pm.extra,
+                    decimals: pm.decimals,
+                    chainDisplayName: pm.chain_display_name,
+                    assetDisplayName: pm.asset_display_name,
+                    price,
                 },
-                network: paymentMethod.caip2_id,
-                payTo: paymentMethod.circle_wallet_address,
-            })),
-            description: restriction.description,
-            mimeType: "application/json",
-        };
+            },
+            network: pm.caip2_id,
+            payTo: pm.circle_wallet_address,
+        })),
+        description,
+        mimeType: "application/json",
+    };
+}
+export function buildRoutesConfig(restrictions, mcpRestrictions, paymentMethods) {
+    const routesConfig = {};
+    for (const r of restrictions) {
+        routesConfig[r.path] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
+    }
+    for (const r of mcpRestrictions) {
+        routesConfig[`${r.mcp_endpoint_path}/${r.method}:${r.name}`] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
     }
     return routesConfig;
 }

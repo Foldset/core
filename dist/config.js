@@ -45,6 +45,11 @@ export class PaymentMethodsManager extends CachedConfigManager {
         super(store, "payment-methods");
     }
 }
+export class McpRestrictionsManager extends CachedConfigManager {
+    constructor(store) {
+        super(store, "mcp-restrictions");
+    }
+}
 export class AiCrawlersManager extends CachedConfigManager {
     constructor(store) {
         super(store, "ai-crawlers");

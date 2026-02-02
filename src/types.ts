@@ -54,6 +54,17 @@ export interface PaymentMethod {
   extra?: Record<string, string>;
 }
 
+export interface McpRestriction {
+  host: string;
+  subdomains: string[];
+  mcp_endpoint_path: string;
+  method: string;
+  name: string;
+  description: string;
+  price: number;
+  scheme: string;
+}
+
 export interface AiCrawler {
   user_agent: string;
 }

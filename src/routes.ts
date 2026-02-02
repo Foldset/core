@@ -1,41 +1,49 @@
 import type { RoutesConfig } from "@x402/core/http";
 import type { Network } from "@x402/core/types";
 
-import type { Restriction, PaymentMethod } from "./types";
+import type { Restriction, McpRestriction, PaymentMethod } from "./types";
 
 export function priceToAmount(priceUsd: number, decimals: number): string {
   const amount = priceUsd * Math.pow(10, decimals);
   return Math.round(amount).toString();
 }
 
+function buildRouteEntry(scheme: string, price: number, description: string, paymentMethods: PaymentMethod[]) {
+  return {
+    accepts: paymentMethods.map((pm) => ({
+      scheme,
+      price: {
+        amount: priceToAmount(price, pm.decimals),
+        asset: pm.contract_address,
+        extra: {
+          ...pm.extra,
+          decimals: pm.decimals,
+          chainDisplayName: pm.chain_display_name,
+          assetDisplayName: pm.asset_display_name,
+          price,
+        },
+      },
+      network: pm.caip2_id as Network,
+      payTo: pm.circle_wallet_address,
+    })),
+    description,
+    mimeType: "application/json",
+  };
+}
+
 export function buildRoutesConfig(
   restrictions: Restriction[],
-  paymentMethods: PaymentMethod[]
+  mcpRestrictions: McpRestriction[],
+  paymentMethods: PaymentMethod[],
 ): RoutesConfig {
   const routesConfig: RoutesConfig = {};
 
-  for (const restriction of restrictions) {
-    routesConfig[restriction.path] = {
-      accepts: paymentMethods.map((paymentMethod) => ({
-        scheme: restriction.scheme,
-        price: {
-          amount: priceToAmount(restriction.price, paymentMethod.decimals),
-          asset: paymentMethod.contract_address,
-          // eip712 required extra
-          extra: {
-            ...paymentMethod.extra,
-            decimals: paymentMethod.decimals,
-            chainDisplayName: paymentMethod.chain_display_name,
-            assetDisplayName: paymentMethod.asset_display_name,
-            price: restriction.price,
-          },
-        },
-        network: paymentMethod.caip2_id as Network,
-        payTo: paymentMethod.circle_wallet_address,
-      })),
-      description: restriction.description,
-      mimeType: "application/json",
-    };
+  for (const r of restrictions) {
+    routesConfig[r.path] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
+  }
+
+  for (const r of mcpRestrictions) {
+    routesConfig[`${r.mcp_endpoint_path}/${r.method}:${r.name}`] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
   }
 
   return routesConfig;

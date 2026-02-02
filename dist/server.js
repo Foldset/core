@@ -37,26 +37,31 @@ function createFoldsetHTTPResponse(paymentRequired, _isWebBrowser, paywallConfig
 }
 export class HttpServerManager {
     restrictions;
+    mcpRestrictions;
     paymentMethods;
     facilitator;
     cachedHttpServer = null;
     cachedRestrictions = null;
+    cachedMcpRestrictions = null;
     cachedPaymentMethods = null;
     cachedFacilitator = null;
-    constructor(restrictions, paymentMethods, facilitator) {
+    constructor(restrictions, mcpRestrictions, paymentMethods, facilitator) {
         this.restrictions = restrictions;
+        this.mcpRestrictions = mcpRestrictions;
         this.paymentMethods = paymentMethods;
         this.facilitator = facilitator;
     }
     async get() {
         const currentRestrictions = await this.restrictions.get();
+        const currentMcpRestrictions = await this.mcpRestrictions.get();
         const currentPaymentMethods = await this.paymentMethods.get();
         const currentFacilitator = await this.facilitator.get();
-        if (currentRestrictions === null || currentPaymentMethods === null || currentFacilitator === null) {
+        if (currentRestrictions === null || currentMcpRestrictions === null || currentPaymentMethods === null || currentFacilitator === null) {
             return null;
         }
         if (this.cachedHttpServer &&
             currentRestrictions === this.cachedRestrictions &&
+            currentMcpRestrictions === this.cachedMcpRestrictions &&
             currentPaymentMethods === this.cachedPaymentMethods &&
             currentFacilitator === this.cachedFacilitator) {
             return this.cachedHttpServer;
@@ -64,7 +69,7 @@ export class HttpServerManager {
         const server = new x402ResourceServer(currentFacilitator);
         registerExactEvmScheme(server);
         registerExactSvmScheme(server);
-        const routesConfig = buildRoutesConfig(currentRestrictions, currentPaymentMethods);
+        const routesConfig = buildRoutesConfig(currentRestrictions, currentMcpRestrictions, currentPaymentMethods);
         // Monkey-patch prototype BEFORE construction so parseRoutePattern
         // and normalizePath are used during constructor initialization
         // @ts-expect-error - overriding private method
@@ -76,6 +81,7 @@ export class HttpServerManager {
         httpServer.registerPaywallProvider(paywallProvider);
         this.cachedHttpServer = httpServer;
         this.cachedRestrictions = currentRestrictions;
+        this.cachedMcpRestrictions = currentMcpRestrictions;
         this.cachedPaymentMethods = currentPaymentMethods;
         return httpServer;
     }

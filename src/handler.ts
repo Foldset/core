@@ -1,27 +1,33 @@
 import type { HTTPRequestContext, HTTPProcessResult, ProcessSettleResultResponse, x402HTTPResourceServer } from "@x402/core/server";
 import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
 
-import type { RequestAdapter, Restriction } from "./types";
+import type { RequestAdapter } from "./types";
 import type { WorkerCore } from "./index";
 
-function hasMatchingHost(restrictions: Restriction[], hostname: string): boolean {
+function matchesHost(
+  entry: { host: string; subdomains: string[] },
+  hostname: string,
+): boolean {
   const normalizedHostname = hostname.toLowerCase();
-  return restrictions.some((r) => {
-    const normalizedHost = r.host.toLowerCase();
-    if (normalizedHostname === normalizedHost) return true;
-    for (const subdomain of r.subdomains) {
-      if (subdomain && `${subdomain.toLowerCase()}.${normalizedHost}` === normalizedHostname) {
-        return true;
-      }
+  const normalizedHost = entry.host.toLowerCase();
+  if (normalizedHostname === normalizedHost) return true;
+  for (const subdomain of entry.subdomains) {
+    if (subdomain && `${subdomain.toLowerCase()}.${normalizedHost}` === normalizedHostname) {
+      return true;
     }
-    return false;
-  });
+  }
+  return false;
+}
+
+function hasMatchingHost(restrictions: Array<{ host: string; subdomains: string[] }>, hostname: string): boolean {
+  return restrictions.some((r) => matchesHost(r, hostname));
 }
 
 export async function handlePaymentRequest(
   core: WorkerCore,
   httpServer: x402HTTPResourceServer,
   adapter: RequestAdapter,
+  pathOverride?: string,
 ): Promise<HTTPProcessResult> {
   const userAgent = adapter.getUserAgent();
   if (!userAgent || !(await core.aiCrawlers.isAiCrawler(userAgent))) {
@@ -30,13 +36,19 @@ export async function handlePaymentRequest(
 
   // Check if the request hostname matches any configured restriction
   const restrictions = await core.restrictions.get();
-  if (!restrictions || !hasMatchingHost(restrictions, adapter.getHost())) {
+  const mcpRestrictions = await core.mcpRestrictions.get();
+  if (
+    !hasMatchingHost(restrictions ?? [], adapter.getHost()) &&
+    !hasMatchingHost(mcpRestrictions ?? [], adapter.getHost())
+  ) {
     return { type: "no-payment-required" };
   }
 
+  const path = pathOverride ?? adapter.getPath();
+
   const paymentContext: HTTPRequestContext = {
     adapter,
-    path: adapter.getPath(),
+    path,
     method: adapter.getMethod(),
     paymentHeader:
       adapter.getHeader("PAYMENT-SIGNATURE") ||

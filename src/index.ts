@@ -2,6 +2,7 @@ import type { ConfigStore, RequestAdapter, EventPayload, ErrorReporter } from ".
 import { consoleErrorReporter } from "./types";
 import {
   RestrictionsManager,
+  McpRestrictionsManager,
   PaymentMethodsManager,
   AiCrawlersManager,
   FacilitatorManager,
@@ -18,6 +19,7 @@ export interface WorkerCoreOptions {
 
 export class WorkerCore {
   readonly restrictions: RestrictionsManager;
+  readonly mcpRestrictions: McpRestrictionsManager;
   readonly paymentMethods: PaymentMethodsManager;
   readonly aiCrawlers: AiCrawlersManager;
   readonly facilitator: FacilitatorManager;
@@ -28,6 +30,7 @@ export class WorkerCore {
 
   constructor(store: ConfigStore, options?: WorkerCoreOptions) {
     this.restrictions = new RestrictionsManager(store);
+    this.mcpRestrictions = new McpRestrictionsManager(store);
     this.paymentMethods = new PaymentMethodsManager(store);
     this.aiCrawlers = new AiCrawlersManager(store);
     this.facilitator = new FacilitatorManager(store);
@@ -36,6 +39,7 @@ export class WorkerCore {
 
     this.httpServer = new HttpServerManager(
       this.restrictions,
+      this.mcpRestrictions,
       this.paymentMethods,
       this.facilitator,
     );
@@ -66,6 +70,7 @@ export class WorkerCore {
 // Types
 export type {
   Restriction,
+  McpRestriction,
   PaymentMethod,
   AiCrawler,
   FacilitatorConfig,
@@ -90,6 +95,7 @@ export { verifySignature } from "./webhooks";
 export {
   CachedConfigManager,
   RestrictionsManager,
+  McpRestrictionsManager,
   PaymentMethodsManager,
   AiCrawlersManager,
   FacilitatorManager,
@@ -101,6 +107,12 @@ export { HttpServerManager } from "./server";
 
 // Webhook dispatcher
 export { WebhookDispatcher } from "./webhooks";
+
+// MCP
+export {
+  parseMcpRequest,
+  getMcpRouteKey,
+} from "./mcp";
 
 // Handlers
 export { handlePaymentRequest, handleSettlement, handleWebhookRequest } from "./handler";
