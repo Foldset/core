@@ -2,7 +2,7 @@ export function priceToAmount(priceUsd, decimals) {
     const amount = priceUsd * Math.pow(10, decimals);
     return Math.round(amount).toString();
 }
-function buildRouteEntry(scheme, price, description, paymentMethods) {
+export function buildRouteEntry(scheme, price, description, paymentMethods) {
     return {
         accepts: paymentMethods.map((pm) => ({
             scheme,

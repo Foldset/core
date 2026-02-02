@@ -8,7 +8,7 @@ export function priceToAmount(priceUsd: number, decimals: number): string {
   return Math.round(amount).toString();
 }
 
-function buildRouteEntry(scheme: string, price: number, description: string, paymentMethods: PaymentMethod[]) {
+export function buildRouteEntry(scheme: string, price: number, description: string, paymentMethods: PaymentMethod[]) {
   return {
     accepts: paymentMethods.map((pm) => ({
       scheme,
