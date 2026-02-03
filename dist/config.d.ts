@@ -1,18 +1,16 @@
 import { HTTPFacilitatorClient } from "@x402/core/server";
-import type { Restriction, McpRestriction, PaymentMethod, AiCrawler, FacilitatorConfig } from "./types";
+import type { Restriction, McpRestriction, PaymentMethod, AiCrawler } from "./types";
 import type { ConfigStore } from "./types";
-export declare class CachedConfigManager<TStored, TCached = TStored> {
+export declare class CachedConfigManager<T> {
     protected configStore: ConfigStore;
     protected key: string;
-    protected cached: TCached | null;
+    protected cached: T | null;
     protected cacheTimestamp: number;
     constructor(configStore: ConfigStore, key: string);
     protected isCacheValid(): boolean;
-    protected updateCache(value: TCached | null): void;
-    protected invalidateCache(): void;
-    protected deserialize(raw: string): TCached;
-    get(): Promise<TCached | null>;
-    store(data: TStored): Promise<void>;
+    protected updateCache(value: T | null): void;
+    protected deserialize(raw: string): T;
+    get(): Promise<T | null>;
 }
 export declare class RestrictionsManager extends CachedConfigManager<Restriction[]> {
     constructor(store: ConfigStore);
@@ -28,13 +26,11 @@ export declare class AiCrawlersManager extends CachedConfigManager<AiCrawler[]> 
     protected isCacheValid(): boolean;
     protected deserialize(raw: string): AiCrawler[];
     get(): Promise<AiCrawler[]>;
-    store(data: AiCrawler[]): Promise<void>;
     isAiCrawler(userAgent: string): Promise<boolean>;
 }
-export declare class FacilitatorManager extends CachedConfigManager<FacilitatorConfig, HTTPFacilitatorClient> {
+export declare class FacilitatorManager extends CachedConfigManager<HTTPFacilitatorClient> {
     constructor(store: ConfigStore);
     protected deserialize(raw: string): HTTPFacilitatorClient;
-    store(config: FacilitatorConfig): Promise<void>;
 }
 export declare class ApiKeyManager extends CachedConfigManager<string> {
     private staticKey;

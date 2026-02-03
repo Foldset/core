@@ -5,7 +5,6 @@ export interface RequestAdapter extends HTTPAdapter {
 }
 export interface ConfigStore {
     get(key: string): Promise<string | null>;
-    put?(key: string, value: string): Promise<void>;
 }
 export interface ErrorReporter {
     captureException(error: unknown, extra?: Record<string, unknown>): void;
@@ -59,17 +58,4 @@ export interface FacilitatorConfig {
     settleHeaders?: Record<string, string>;
     supportedHeaders?: Record<string, string>;
 }
-export type FoldsetWebhook = {
-    event_type: "restrictions";
-    event_object: Restriction[];
-} | {
-    event_type: "payment-methods";
-    event_object: PaymentMethod[];
-} | {
-    event_type: "ai-crawlers";
-    event_object: AiCrawler[];
-} | {
-    event_type: "facilitator";
-    event_object: FacilitatorConfig;
-};
 //# sourceMappingURL=types.d.ts.map

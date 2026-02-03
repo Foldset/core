@@ -112,24 +112,6 @@ export async function handleSettlement(
   return result;
 }
 
-export async function handleWebhookRequest(
-  core: WorkerCore,
-  adapter: RequestAdapter,
-  body: string,
-): Promise<{ status: number; body: string }> {
-  const signature = adapter.getHeader("X-Foldset-Signature");
-  if (!signature) {
-    return { status: 401, body: "Missing signature" };
-  }
-
-  const key = await core.apiKey.get();
-  if (!key) {
-    return { status: 500, body: "API key not configured" };
-  }
-
-  return core.webhooks.dispatch(body, signature, key);
-}
-
 async function logEvent(
   core: WorkerCore,
   adapter: RequestAdapter,

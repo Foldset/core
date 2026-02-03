@@ -9,7 +9,6 @@ import {
   ApiKeyManager,
 } from "./config";
 import { HttpServerManager } from "./server";
-import { WebhookDispatcher } from "./webhooks";
 import { buildEventPayload, sendEvent } from "./telemetry";
 
 export interface WorkerCoreOptions {
@@ -25,7 +24,6 @@ export class WorkerCore {
   readonly facilitator: FacilitatorManager;
   readonly apiKey: ApiKeyManager;
   readonly httpServer: HttpServerManager;
-  readonly webhooks: WebhookDispatcher;
   readonly errorReporter: ErrorReporter;
 
   constructor(store: ConfigStore, options?: WorkerCoreOptions) {
@@ -41,13 +39,6 @@ export class WorkerCore {
       this.restrictions,
       this.mcpRestrictions,
       this.paymentMethods,
-      this.facilitator,
-    );
-
-    this.webhooks = new WebhookDispatcher(
-      this.restrictions,
-      this.paymentMethods,
-      this.aiCrawlers,
       this.facilitator,
     );
   }
@@ -74,7 +65,6 @@ export type {
   PaymentMethod,
   AiCrawler,
   FacilitatorConfig,
-  FoldsetWebhook,
   ConfigStore,
   RequestAdapter,
   EventPayload,
@@ -87,9 +77,6 @@ export { generatePaywallHtml } from "./paywall";
 
 // Routes
 export { buildRoutesConfig, priceToAmount } from "./routes";
-
-// Webhooks
-export { verifySignature } from "./webhooks";
 
 // Config managers
 export {
@@ -105,9 +92,6 @@ export {
 // Server
 export { HttpServerManager } from "./server";
 
-// Webhook dispatcher
-export { WebhookDispatcher } from "./webhooks";
-
 // MCP
 export {
   parseMcpRequest,
@@ -115,4 +99,4 @@ export {
 } from "./mcp";
 
 // Handlers
-export { handlePaymentRequest, handleSettlement, handleWebhookRequest } from "./handler";
+export { handlePaymentRequest, handleSettlement } from "./handler";

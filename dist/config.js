@@ -16,10 +16,6 @@ export class CachedConfigManager {
         this.cached = value;
         this.cacheTimestamp = Date.now();
     }
-    invalidateCache() {
-        this.cached = null;
-        this.cacheTimestamp = 0;
-    }
     deserialize(raw) {
         return JSON.parse(raw);
     }
@@ -29,10 +25,6 @@ export class CachedConfigManager {
         const raw = await this.configStore.get(this.key);
         this.updateCache(raw ? this.deserialize(raw) : null);
         return this.cached;
-    }
-    async store(data) {
-        await this.configStore.put?.(this.key, JSON.stringify(data));
-        this.updateCache(data);
     }
 }
 export class RestrictionsManager extends CachedConfigManager {
@@ -70,10 +62,6 @@ export class AiCrawlersManager extends CachedConfigManager {
         this.updateCache(raw ? this.deserialize(raw) : []);
         return this.cached;
     }
-    async store(data) {
-        await this.configStore.put?.(this.key, JSON.stringify(data));
-        this.updateCache(data.map((c) => ({ user_agent: c.user_agent.toLowerCase() })));
-    }
     async isAiCrawler(userAgent) {
         const crawlers = await this.get();
         const ua = userAgent.toLowerCase();
@@ -97,11 +85,6 @@ export class FacilitatorManager extends CachedConfigManager {
                 }),
             }),
         });
-    }
-    async store(config) {
-        await this.configStore.put?.(this.key, JSON.stringify(config));
-        // Invalidate cache so next get() creates a new client
-        this.invalidateCache();
     }
 }
 export class ApiKeyManager extends CachedConfigManager {

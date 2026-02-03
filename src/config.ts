@@ -5,8 +5,8 @@ import type { ConfigStore } from "./types";
 
 const CACHE_TTL_MS = 30_000;
 
-export class CachedConfigManager<TStored, TCached = TStored> {
-  protected cached: TCached | null = null;
+export class CachedConfigManager<T> {
+  protected cached: T | null = null;
   protected cacheTimestamp = 0;
 
   constructor(
@@ -18,30 +18,20 @@ export class CachedConfigManager<TStored, TCached = TStored> {
     return this.cached !== null && Date.now() - this.cacheTimestamp < CACHE_TTL_MS;
   }
 
-  protected updateCache(value: TCached | null): void {
+  protected updateCache(value: T | null): void {
     this.cached = value;
     this.cacheTimestamp = Date.now();
   }
 
-  protected invalidateCache(): void {
-    this.cached = null;
-    this.cacheTimestamp = 0;
+  protected deserialize(raw: string): T {
+    return JSON.parse(raw) as T;
   }
 
-  protected deserialize(raw: string): TCached {
-    return JSON.parse(raw) as TCached;
-  }
-
-  async get(): Promise<TCached | null> {
+  async get(): Promise<T | null> {
     if (this.isCacheValid()) return this.cached;
     const raw = await this.configStore.get(this.key);
     this.updateCache(raw ? this.deserialize(raw) : null);
     return this.cached;
-  }
-
-  async store(data: TStored): Promise<void> {
-    await this.configStore.put?.(this.key, JSON.stringify(data));
-    this.updateCache(data as unknown as TCached);
   }
 }
 
@@ -88,11 +78,6 @@ export class AiCrawlersManager extends CachedConfigManager<AiCrawler[]> {
     return this.cached!;
   }
 
-  override async store(data: AiCrawler[]): Promise<void> {
-    await this.configStore.put?.(this.key, JSON.stringify(data));
-    this.updateCache(data.map((c) => ({ user_agent: c.user_agent.toLowerCase() })));
-  }
-
   async isAiCrawler(userAgent: string): Promise<boolean> {
     const crawlers = await this.get();
     const ua = userAgent.toLowerCase();
@@ -100,7 +85,7 @@ export class AiCrawlersManager extends CachedConfigManager<AiCrawler[]> {
   }
 }
 
-export class FacilitatorManager extends CachedConfigManager<FacilitatorConfig, HTTPFacilitatorClient> {
+export class FacilitatorManager extends CachedConfigManager<HTTPFacilitatorClient> {
   constructor(store: ConfigStore) {
     super(store, "facilitator");
   }
@@ -123,11 +108,6 @@ export class FacilitatorManager extends CachedConfigManager<FacilitatorConfig, H
     });
   }
 
-  override async store(config: FacilitatorConfig): Promise<void> {
-    await this.configStore.put?.(this.key, JSON.stringify(config));
-    // Invalidate cache so next get() creates a new client
-    this.invalidateCache();
-  }
 }
 
 export class ApiKeyManager extends CachedConfigManager<string> {
