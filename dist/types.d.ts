@@ -22,14 +22,24 @@ export type EventPayload = {
     ip_address?: string | null;
     payment_response?: string;
 };
-export interface Restriction {
+export interface RestrictionBase {
     host: string;
     subdomains: string[];
-    path: string;
     description: string;
     price: number;
     scheme: string;
 }
+export interface WebRestriction extends RestrictionBase {
+    type: "web";
+    path: string;
+}
+export interface McpRestriction extends RestrictionBase {
+    type: "mcp";
+    mcp_endpoint_path: string;
+    method: string;
+    name: string;
+}
+export type Restriction = WebRestriction | McpRestriction;
 export interface PaymentMethod {
     caip2_id: string;
     decimals: number;
@@ -38,16 +48,6 @@ export interface PaymentMethod {
     chain_display_name: string;
     asset_display_name: string;
     extra?: Record<string, string>;
-}
-export interface McpRestriction {
-    host: string;
-    subdomains: string[];
-    mcp_endpoint_path: string;
-    method: string;
-    name: string;
-    description: string;
-    price: number;
-    scheme: string;
 }
 export interface AiCrawler {
     user_agent: string;

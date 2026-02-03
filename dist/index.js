@@ -1,10 +1,9 @@
 import { consoleErrorReporter } from "./types";
-import { RestrictionsManager, McpRestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager, } from "./config";
+import { RestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager, } from "./config";
 import { HttpServerManager } from "./server";
 import { buildEventPayload, sendEvent } from "./telemetry";
 export class WorkerCore {
     restrictions;
-    mcpRestrictions;
     paymentMethods;
     aiCrawlers;
     facilitator;
@@ -13,13 +12,12 @@ export class WorkerCore {
     errorReporter;
     constructor(store, options) {
         this.restrictions = new RestrictionsManager(store);
-        this.mcpRestrictions = new McpRestrictionsManager(store);
         this.paymentMethods = new PaymentMethodsManager(store);
         this.aiCrawlers = new AiCrawlersManager(store);
         this.facilitator = new FacilitatorManager(store);
         this.apiKey = new ApiKeyManager(options?.apiKey ?? store);
         this.errorReporter = options?.errorReporter ?? consoleErrorReporter;
-        this.httpServer = new HttpServerManager(this.restrictions, this.mcpRestrictions, this.paymentMethods, this.facilitator);
+        this.httpServer = new HttpServerManager(this.restrictions, this.paymentMethods, this.facilitator);
     }
     buildEventPayload(adapter, statusCode, paymentResponse) {
         return buildEventPayload(adapter, statusCode, paymentResponse);
@@ -37,7 +35,7 @@ export { generatePaywallHtml } from "./paywall";
 // Routes
 export { buildRoutesConfig, priceToAmount } from "./routes";
 // Config managers
-export { CachedConfigManager, RestrictionsManager, McpRestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager, } from "./config";
+export { CachedConfigManager, RestrictionsManager, PaymentMethodsManager, AiCrawlersManager, FacilitatorManager, ApiKeyManager, } from "./config";
 // Server
 export { HttpServerManager } from "./server";
 // MCP

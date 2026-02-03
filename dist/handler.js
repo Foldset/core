@@ -20,9 +20,7 @@ export async function handlePaymentRequest(core, httpServer, adapter, pathOverri
     }
     // Check if the request hostname matches any configured restriction
     const restrictions = await core.restrictions.get();
-    const mcpRestrictions = await core.mcpRestrictions.get();
-    if (!hasMatchingHost(restrictions ?? [], adapter.getHost()) &&
-        !hasMatchingHost(mcpRestrictions ?? [], adapter.getHost())) {
+    if (!hasMatchingHost(restrictions ?? [], adapter.getHost())) {
         return { type: "no-payment-required" };
     }
     const path = pathOverride ?? adapter.getPath();

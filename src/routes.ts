@@ -1,7 +1,7 @@
 import type { RoutesConfig } from "@x402/core/http";
 import type { Network } from "@x402/core/types";
 
-import type { Restriction, McpRestriction, PaymentMethod } from "./types";
+import type { Restriction, PaymentMethod } from "./types";
 
 export function priceToAmount(priceUsd: number, decimals: number): string {
   const amount = priceUsd * Math.pow(10, decimals);
@@ -33,17 +33,16 @@ export function buildRouteEntry(scheme: string, price: number, description: stri
 
 export function buildRoutesConfig(
   restrictions: Restriction[],
-  mcpRestrictions: McpRestriction[],
   paymentMethods: PaymentMethod[],
 ): RoutesConfig {
   const routesConfig: RoutesConfig = {};
 
   for (const r of restrictions) {
-    routesConfig[r.path] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
-  }
-
-  for (const r of mcpRestrictions) {
-    routesConfig[`${r.mcp_endpoint_path}/${r.method}:${r.name}`] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
+    // TODO rfradkin: this is pretty janky
+    const key = r.type === "web"
+      ? r.path
+      : `${r.mcp_endpoint_path}/${r.method}:${r.name}`;
+    routesConfig[key] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
   }
 
   return routesConfig;

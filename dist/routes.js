@@ -24,13 +24,14 @@ export function buildRouteEntry(scheme, price, description, paymentMethods) {
         mimeType: "application/json",
     };
 }
-export function buildRoutesConfig(restrictions, mcpRestrictions, paymentMethods) {
+export function buildRoutesConfig(restrictions, paymentMethods) {
     const routesConfig = {};
     for (const r of restrictions) {
-        routesConfig[r.path] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
-    }
-    for (const r of mcpRestrictions) {
-        routesConfig[`${r.mcp_endpoint_path}/${r.method}:${r.name}`] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
+        // TODO rfradkin: this is pretty janky
+        const key = r.type === "web"
+            ? r.path
+            : `${r.mcp_endpoint_path}/${r.method}:${r.name}`;
+        routesConfig[key] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
     }
     return routesConfig;
 }
