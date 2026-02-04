@@ -21,5 +21,5 @@ export declare function buildRouteEntry(scheme: string, price: number, descripti
     description: string;
     mimeType: string;
 };
-export declare function buildRoutesConfig(restrictions: Restriction[], paymentMethods: PaymentMethod[]): RoutesConfig;
+export declare function buildRoutesConfig(restrictions: Restriction[], paymentMethods: PaymentMethod[], mcpEndpoint: string | null): RoutesConfig;
 //# sourceMappingURL=routes.d.ts.map

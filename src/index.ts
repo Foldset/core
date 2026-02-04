@@ -1,6 +1,7 @@
 import type { ConfigStore, RequestAdapter, EventPayload, ErrorReporter } from "./types";
 import { consoleErrorReporter } from "./types";
 import {
+  HostConfigManager,
   RestrictionsManager,
   PaymentMethodsManager,
   AiCrawlersManager,
@@ -16,6 +17,7 @@ export interface WorkerCoreOptions {
 }
 
 export class WorkerCore {
+  readonly hostConfig: HostConfigManager;
   readonly restrictions: RestrictionsManager;
   readonly paymentMethods: PaymentMethodsManager;
   readonly aiCrawlers: AiCrawlersManager;
@@ -25,6 +27,7 @@ export class WorkerCore {
   readonly errorReporter: ErrorReporter;
 
   constructor(store: ConfigStore, options?: WorkerCoreOptions) {
+    this.hostConfig = new HostConfigManager(store);
     this.restrictions = new RestrictionsManager(store);
     this.paymentMethods = new PaymentMethodsManager(store);
     this.aiCrawlers = new AiCrawlersManager(store);
@@ -33,6 +36,7 @@ export class WorkerCore {
     this.errorReporter = options?.errorReporter ?? consoleErrorReporter;
 
     this.httpServer = new HttpServerManager(
+      this.hostConfig,
       this.restrictions,
       this.paymentMethods,
       this.facilitator,
@@ -56,6 +60,7 @@ export class WorkerCore {
 
 // Types
 export type {
+  HostConfig,
   RestrictionBase,
   WebRestriction,
   McpRestriction,
@@ -79,6 +84,7 @@ export { buildRoutesConfig, priceToAmount } from "./routes";
 // Config managers
 export {
   CachedConfigManager,
+  HostConfigManager,
   RestrictionsManager,
   PaymentMethodsManager,
   AiCrawlersManager,
@@ -93,7 +99,11 @@ export { HttpServerManager } from "./server";
 export {
   parseMcpRequest,
   getMcpRouteKey,
+  isMcpListMethod,
+  getMcpListPaymentRequirements,
+  buildJsonRpcError,
 } from "./mcp";
+export type { JsonRpcRequest, McpPaymentRequirement, JsonRpcError } from "./mcp";
 
 // Handlers
 export { handlePaymentRequest, handleSettlement } from "./handler";

@@ -1,5 +1,5 @@
 import { HTTPFacilitatorClient } from "@x402/core/server";
-import type { Restriction, PaymentMethod, AiCrawler, FacilitatorConfig } from "./types";
+import type { HostConfig, Restriction, PaymentMethod, AiCrawler, FacilitatorConfig } from "./types";
 
 import type { ConfigStore } from "./types";
 
@@ -32,6 +32,12 @@ export class CachedConfigManager<T> {
     const raw = await this.configStore.get(this.key);
     this.updateCache(raw ? this.deserialize(raw) : null);
     return this.cached;
+  }
+}
+
+export class HostConfigManager extends CachedConfigManager<HostConfig> {
+  constructor(store: ConfigStore) {
+    super(store, "host-config");
   }
 }
 

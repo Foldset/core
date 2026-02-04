@@ -27,6 +27,11 @@ export class CachedConfigManager {
         return this.cached;
     }
 }
+export class HostConfigManager extends CachedConfigManager {
+    constructor(store) {
+        super(store, "host-config");
+    }
+}
 export class RestrictionsManager extends CachedConfigManager {
     constructor(store) {
         super(store, "restrictions");

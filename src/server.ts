@@ -8,10 +8,10 @@ import { registerExactEvmScheme } from "@x402/evm/exact/server";
 import { registerExactSvmScheme } from "@x402/svm/exact/server";
 import type { UnpaidResponseResult, HTTPResponseInstructions, HTTPFacilitatorClient } from "@x402/core/http";
 
-import type { Restriction, PaymentMethod } from "./types";
+import type { HostConfig, Restriction, PaymentMethod } from "./types";
 import { buildRoutesConfig, generatePaywallHtml } from "./index";
 
-import { RestrictionsManager, PaymentMethodsManager, FacilitatorManager } from "./config";
+import { HostConfigManager, RestrictionsManager, PaymentMethodsManager, FacilitatorManager } from "./config";
 
 const paywallProvider: PaywallProvider = {
   generateHtml: generatePaywallHtml,
@@ -60,17 +60,20 @@ function createFoldsetHTTPResponse(
 
 export class HttpServerManager {
   private cachedHttpServer: x402HTTPResourceServer | null = null;
+  private cachedHostConfig: HostConfig | null = null;
   private cachedRestrictions: Restriction[] | null = null;
   private cachedPaymentMethods: PaymentMethod[] | null = null;
   private cachedFacilitator: HTTPFacilitatorClient | null = null;
 
   constructor(
+    private hostConfig: HostConfigManager,
     private restrictions: RestrictionsManager,
     private paymentMethods: PaymentMethodsManager,
     private facilitator: FacilitatorManager,
   ) { }
 
   async get(): Promise<x402HTTPResourceServer | null> {
+    const currentHostConfig = await this.hostConfig.get();
     const currentRestrictions = await this.restrictions.get();
     const currentPaymentMethods = await this.paymentMethods.get();
     const currentFacilitator = await this.facilitator.get();
@@ -80,6 +83,7 @@ export class HttpServerManager {
 
     if (
       this.cachedHttpServer &&
+      currentHostConfig === this.cachedHostConfig &&
       currentRestrictions === this.cachedRestrictions &&
       currentPaymentMethods === this.cachedPaymentMethods &&
       currentFacilitator === this.cachedFacilitator
@@ -94,6 +98,7 @@ export class HttpServerManager {
     const routesConfig = buildRoutesConfig(
       currentRestrictions,
       currentPaymentMethods,
+      currentHostConfig?.mcpEndpoint ?? null,
     );
 
     // Monkey-patch prototype BEFORE construction so parseRoutePattern
@@ -110,6 +115,7 @@ export class HttpServerManager {
     httpServer.registerPaywallProvider(paywallProvider);
 
     this.cachedHttpServer = httpServer;
+    this.cachedHostConfig = currentHostConfig;
     this.cachedRestrictions = currentRestrictions;
     this.cachedPaymentMethods = currentPaymentMethods;
 

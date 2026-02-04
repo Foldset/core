@@ -32,9 +32,13 @@ export type EventPayload = {
   payment_response?: string;
 };
 
-export interface RestrictionBase {
+export interface HostConfig {
   host: string;
-  subdomains: string[];
+  subdomain?: string;
+  mcpEndpoint?: string;
+}
+
+export interface RestrictionBase {
   description: string;
   price: number;
   scheme: string;
@@ -47,7 +51,6 @@ export interface WebRestriction extends RestrictionBase {
 
 export interface McpRestriction extends RestrictionBase {
   type: "mcp";
-  mcp_endpoint_path: string;
   method: string;
   name: string;
 }

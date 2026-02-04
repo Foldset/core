@@ -24,13 +24,12 @@ export function buildRouteEntry(scheme, price, description, paymentMethods) {
         mimeType: "application/json",
     };
 }
-export function buildRoutesConfig(restrictions, paymentMethods) {
+export function buildRoutesConfig(restrictions, paymentMethods, mcpEndpoint) {
     const routesConfig = {};
     for (const r of restrictions) {
-        // TODO rfradkin: this is pretty janky
         const key = r.type === "web"
             ? r.path
-            : `${r.mcp_endpoint_path}/${r.method}:${r.name}`;
+            : `${mcpEndpoint}/${r.method}:${r.name}`;
         routesConfig[key] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
     }
     return routesConfig;

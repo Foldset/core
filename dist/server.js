@@ -36,19 +36,23 @@ function createFoldsetHTTPResponse(paymentRequired, _isWebBrowser, paywallConfig
     };
 }
 export class HttpServerManager {
+    hostConfig;
     restrictions;
     paymentMethods;
     facilitator;
     cachedHttpServer = null;
+    cachedHostConfig = null;
     cachedRestrictions = null;
     cachedPaymentMethods = null;
     cachedFacilitator = null;
-    constructor(restrictions, paymentMethods, facilitator) {
+    constructor(hostConfig, restrictions, paymentMethods, facilitator) {
+        this.hostConfig = hostConfig;
         this.restrictions = restrictions;
         this.paymentMethods = paymentMethods;
         this.facilitator = facilitator;
     }
     async get() {
+        const currentHostConfig = await this.hostConfig.get();
         const currentRestrictions = await this.restrictions.get();
         const currentPaymentMethods = await this.paymentMethods.get();
         const currentFacilitator = await this.facilitator.get();
@@ -56,6 +60,7 @@ export class HttpServerManager {
             return null;
         }
         if (this.cachedHttpServer &&
+            currentHostConfig === this.cachedHostConfig &&
             currentRestrictions === this.cachedRestrictions &&
             currentPaymentMethods === this.cachedPaymentMethods &&
             currentFacilitator === this.cachedFacilitator) {
@@ -64,7 +69,7 @@ export class HttpServerManager {
         const server = new x402ResourceServer(currentFacilitator);
         registerExactEvmScheme(server);
         registerExactSvmScheme(server);
-        const routesConfig = buildRoutesConfig(currentRestrictions, currentPaymentMethods);
+        const routesConfig = buildRoutesConfig(currentRestrictions, currentPaymentMethods, currentHostConfig?.mcpEndpoint ?? null);
         // Monkey-patch prototype BEFORE construction so parseRoutePattern
         // and normalizePath are used during constructor initialization
         // @ts-expect-error - overriding private method
@@ -75,6 +80,7 @@ export class HttpServerManager {
         await httpServer.initialize();
         httpServer.registerPaywallProvider(paywallProvider);
         this.cachedHttpServer = httpServer;
+        this.cachedHostConfig = currentHostConfig;
         this.cachedRestrictions = currentRestrictions;
         this.cachedPaymentMethods = currentPaymentMethods;
         return httpServer;

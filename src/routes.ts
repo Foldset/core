@@ -34,14 +34,14 @@ export function buildRouteEntry(scheme: string, price: number, description: stri
 export function buildRoutesConfig(
   restrictions: Restriction[],
   paymentMethods: PaymentMethod[],
+  mcpEndpoint: string | null,
 ): RoutesConfig {
   const routesConfig: RoutesConfig = {};
 
   for (const r of restrictions) {
-    // TODO rfradkin: this is pretty janky
     const key = r.type === "web"
       ? r.path
-      : `${r.mcp_endpoint_path}/${r.method}:${r.name}`;
+      : `${mcpEndpoint}/${r.method}:${r.name}`;
     routesConfig[key] = buildRouteEntry(r.scheme, r.price, r.description, paymentMethods);
   }
 

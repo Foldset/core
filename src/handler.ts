@@ -1,26 +1,14 @@
 import type { HTTPRequestContext, HTTPProcessResult, ProcessSettleResultResponse, x402HTTPResourceServer } from "@x402/core/server";
 import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
 
-import type { RequestAdapter } from "./types";
+import type { HostConfig, RequestAdapter } from "./types";
 import type { WorkerCore } from "./index";
 
-function matchesHost(
-  entry: { host: string; subdomains: string[] },
-  hostname: string,
-): boolean {
-  const normalizedHostname = hostname.toLowerCase();
-  const normalizedHost = entry.host.toLowerCase();
-  if (normalizedHostname === normalizedHost) return true;
-  for (const subdomain of entry.subdomains) {
-    if (subdomain && `${subdomain.toLowerCase()}.${normalizedHost}` === normalizedHostname) {
-      return true;
-    }
-  }
-  return false;
-}
-
-function hasMatchingHost(restrictions: Array<{ host: string; subdomains: string[] }>, hostname: string): boolean {
-  return restrictions.some((r) => matchesHost(r, hostname));
+function matchesHost(hostConfig: HostConfig, hostname: string): boolean {
+  const expected = hostConfig.subdomain
+    ? `${hostConfig.subdomain}.${hostConfig.host}`
+    : hostConfig.host;
+  return hostname.toLowerCase() === expected.toLowerCase();
 }
 
 export async function handlePaymentRequest(
@@ -34,9 +22,9 @@ export async function handlePaymentRequest(
     return { type: "no-payment-required" };
   }
 
-  // Check if the request hostname matches any configured restriction
-  const restrictions = await core.restrictions.get();
-  if (!hasMatchingHost(restrictions ?? [], adapter.getHost())) {
+  // Check if the request hostname matches the configured host
+  const hostConfig = await core.hostConfig.get();
+  if (!hostConfig || !matchesHost(hostConfig, adapter.getHost())) {
     return { type: "no-payment-required" };
   }
 
