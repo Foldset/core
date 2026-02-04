@@ -47,6 +47,13 @@ export async function handlePaymentRequest(
 
   if (result.type === "payment-error") {
     await logEvent(core, adapter, result.response.status);
+
+    // Return 200 with paywall HTML for ChatGPT/Claude so they render it
+    // instead of ignoring a 402 error
+    const ua = userAgent.toLowerCase();
+    if (ua.includes("chatgpt") || ua.includes("claude")) {
+      result.response.status = 200;
+    }
   }
 
   return result;
