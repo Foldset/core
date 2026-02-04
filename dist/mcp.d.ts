@@ -1,5 +1,4 @@
-import type { x402HTTPResourceServer } from "@x402/core/server";
-import type { Restriction, RequestAdapter } from "./types";
+import type { Restriction, PaymentMethod } from "./types";
 export interface JsonRpcRequest {
     jsonrpc: string;
     id?: string | number | null;
@@ -17,7 +16,17 @@ export declare function isMcpListMethod(method: string): boolean;
 export interface McpPaymentRequirement {
     name: string;
     method: string;
-    headers: Record<string, string>;
+    description: string;
+    price: number;
+    scheme: string;
+    accepts: Array<{
+        network: string;
+        chainDisplayName: string;
+        asset: string;
+        assetDisplayName: string;
+        amount: string;
+        payTo: string;
+    }>;
 }
 export interface JsonRpcError {
     jsonrpc: "2.0";
@@ -31,9 +40,8 @@ export interface JsonRpcError {
 export declare function buildJsonRpcError(id: string | number | null, code: number, message: string, data?: unknown): JsonRpcError;
 /**
  * Build payment requirements for all gated MCP tools/resources/prompts
- * matching the given list method. Returns an array of {name, method, headers}
- * objects — one per restricted item. Callers serialize this into an HTTP
- * header on the list response.
+ * matching the given list method. Returns clear payment instructions
+ * built directly from Foldset restrictions and payment methods.
  */
-export declare function getMcpListPaymentRequirements(listMethod: string, mcpEndpoint: string, httpServer: x402HTTPResourceServer, adapter: RequestAdapter, restrictions: Restriction[]): Promise<McpPaymentRequirement[]>;
+export declare function getMcpListPaymentRequirements(listMethod: string, restrictions: Restriction[], paymentMethods: PaymentMethod[]): McpPaymentRequirement[];
 //# sourceMappingURL=mcp.d.ts.map
