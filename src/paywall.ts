@@ -76,24 +76,24 @@ export function generatePaywallHtml(paymentRequired: PaymentRequired, config?: P
   <title>HTTP 402 - Payment Required</title>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
   <style>
-    body { font-family: 'Inter', system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #000; color: #ededed; -webkit-font-smoothing: antialiased; }
-    h1, h2, h3 { color: #ededed; }
-    a { color: #00ff88; }
-    code { background: rgba(255,255,255,0.08); color: #ccc; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; font-family: 'IBM Plex Mono', monospace; }
+    body { font-family: 'Inter', system-ui, sans-serif; max-width: 800px; margin: 40px auto; padding: 0 20px; background: #fff; color: #111; -webkit-font-smoothing: antialiased; }
+    h1, h2, h3 { color: #111; }
+    a { color: #00aa5e; }
+    code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; font-size: 0.9em; font-family: 'IBM Plex Mono', monospace; }
     table { border-collapse: collapse; margin: 10px 0; width: 100%; }
-    th, td { padding: 8px 12px; border-bottom: 1px solid rgba(255,255,255,0.08); text-align: left; }
-    th { background: rgba(255,255,255,0.06); color: #888; font-size: 0.85em; letter-spacing: 0.03em; text-transform: uppercase; }
-    td { color: #ccc; font-size: 0.9em; }
-    section, .card { margin: 20px 0; padding: 15px; border: 1px solid rgba(255,255,255,0.08); border-radius: 5px; }
+    th, td { padding: 8px 12px; border-bottom: 1px solid #e5e5e5; text-align: left; }
+    th { background: #f7f7f7; color: #666; font-size: 0.85em; letter-spacing: 0.03em; text-transform: uppercase; }
+    td { color: #333; font-size: 0.9em; }
+    section, .card { margin: 20px 0; padding: 15px; border: 1px solid #e5e5e5; border-radius: 5px; }
     h3 { margin-top: 0; }
-    strong { color: #ededed; }
-    ul { color: #ccc; }
-    p { color: #888; }
-    .notice { background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08); border-radius: 6px; padding: 10px 12px; margin: 16px 0; color: #888; font-size: 0.92em; }
-    .notice strong { display: block; margin-bottom: 4px; font-weight: 600; color: #ededed; }
+    strong { color: #111; }
+    ul { color: #333; }
+    p { color: #555; }
+    .notice { background: #f7f7f7; border: 1px solid #e5e5e5; border-radius: 6px; padding: 10px 12px; margin: 16px 0; color: #555; font-size: 0.92em; }
+    .notice strong { display: block; margin-bottom: 4px; font-weight: 600; color: #111; }
     .notice p { margin: 0; }
-    .detail { color: #888; }
-    footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid rgba(255,255,255,0.08); font-size: 0.9em; color: #888; }
+    .detail { color: #555; }
+    footer { margin-top: 30px; padding-top: 15px; border-top: 1px solid #e5e5e5; font-size: 0.9em; color: #888; }
     ::selection { background: #00ff88; color: #000; }
   </style>
 </head>
