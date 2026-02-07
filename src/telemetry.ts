@@ -1,10 +1,16 @@
-import type { RequestAdapter, EventPayload, ErrorReporter } from "./types";
+import { API_BASE_URL } from "./config";
+import type { WorkerCore } from "./index";
+import type { ErrorReport, EventPayload, RequestAdapter } from "./types";
 
-const API_BASE_URL = "https://api.foldset.com/v1";
+const JSON_HEADERS = {
+  "Content-Type": "application/json",
+  Accept: "application/json",
+} as const;
 
 export function buildEventPayload(
   adapter: RequestAdapter,
   statusCode: number,
+  requestId: string,
   paymentResponse?: string,
 ): EventPayload {
   const url = new URL(adapter.getUrl());
@@ -19,30 +25,59 @@ export function buildEventPayload(
     pathname: url.pathname,
     search: url.search,
     ip_address: adapter.getIpAddress(),
-    ...(paymentResponse ? { payment_response: paymentResponse } : {}),
+    request_id: requestId,
+    ...(paymentResponse && { payment_response: paymentResponse }),
   };
 }
 
 export async function sendEvent(
   apiKey: string,
   payload: EventPayload,
-  errorReporter: ErrorReporter,
 ): Promise<void> {
-  try {
-    await fetch(`${API_BASE_URL}/events`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${apiKey}`,
-        "Content-Type": "application/json",
-        Accept: "application/json",
-      },
-      body: JSON.stringify(payload),
-    });
-  } catch (error) {
-    errorReporter.captureException(error, {
-      method: "POST",
-      url: `${API_BASE_URL}/events`,
-      payload,
-    });
+  await fetch(`${API_BASE_URL}/v1/events`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, ...JSON_HEADERS },
+    body: JSON.stringify(payload),
+  }).catch((error: unknown) => {
+    console.error(error);
+  });
+}
+
+export async function reportError(
+  apiKey: string,
+  error: unknown,
+  adapter?: RequestAdapter,
+): Promise<void> {
+  const payload: ErrorReport = {
+    error: error instanceof Error ? error.message : String(error),
+    stack: error instanceof Error ? error.stack : undefined,
+  };
+
+  if (adapter) {
+    payload.context = {
+      method: adapter.getMethod(),
+      path: adapter.getPath(),
+      hostname: adapter.getHost(),
+      user_agent: adapter.getUserAgent() || null,
+      ip_address: adapter.getIpAddress(),
+    };
   }
+
+  // Fail silently, error reporting must never break the request.
+  await fetch(`${API_BASE_URL}/v1/errors`, {
+    method: "POST",
+    headers: { Authorization: `Bearer ${apiKey}`, ...JSON_HEADERS },
+    body: JSON.stringify(payload),
+  }).catch(() => {});
+}
+
+export async function logEvent(
+  core: WorkerCore,
+  adapter: RequestAdapter,
+  statusCode: number,
+  requestId: string,
+  paymentResponse?: string,
+): Promise<void> {
+  const payload = buildEventPayload(adapter, statusCode, requestId, paymentResponse);
+  await sendEvent(core.apiKey, payload);
 }

@@ -1,25 +1,35 @@
-import type { HTTPAdapter } from "@x402/core/server";
+import type { HTTPAdapter, HTTPProcessResult } from "@x402/core/server";
+
+import type { RedisCredentials } from "./store";
+
+export interface FoldsetOptions {
+  apiKey: string;
+  redisCredentials?: RedisCredentials;
+}
+
+export interface RequestMetadata {
+  version: string;
+  request_id: string;
+  timestamp: string;
+}
+
+export type ProcessRequestResult = { metadata: RequestMetadata } & (
+  | (Extract<HTTPProcessResult, { type: "no-payment-required" }> & { headers?: Record<string, string> })
+  | (Extract<HTTPProcessResult, { type: "payment-error" }> & { restriction: Restriction })
+  | Extract<HTTPProcessResult, { type: "payment-verified" }>
+);
 
 export interface RequestAdapter extends HTTPAdapter {
   getIpAddress(): string | null;
   getHost(): string;
+  getBody(): Promise<unknown>;
 }
 
 export interface ConfigStore {
   get(key: string): Promise<string | null>;
 }
 
-export interface ErrorReporter {
-  captureException(error: unknown, extra?: Record<string, unknown>): void;
-}
-
-export const consoleErrorReporter: ErrorReporter = {
-  captureException(error: unknown) {
-    console.error(error);
-  },
-};
-
-export type EventPayload = {
+export interface EventPayload {
   method: string;
   status_code: number;
   user_agent: string | null;
@@ -30,12 +40,26 @@ export type EventPayload = {
   search: string;
   ip_address?: string | null;
   payment_response?: string;
-};
+  request_id: string;
+}
+
+export interface ErrorReport {
+  error: string;
+  stack?: string;
+  context?: {
+    method?: string;
+    path?: string;
+    hostname?: string;
+    user_agent?: string | null;
+    ip_address?: string | null;
+  };
+}
 
 export interface HostConfig {
   host: string;
   subdomain?: string;
   mcpEndpoint?: string;
+  legalUrl?: string;
 }
 
 export interface RestrictionBase {
@@ -49,13 +73,19 @@ export interface WebRestriction extends RestrictionBase {
   path: string;
 }
 
+export interface ApiRestriction extends RestrictionBase {
+  type: "api";
+  path: string;
+  httpMethod?: string;
+}
+
 export interface McpRestriction extends RestrictionBase {
   type: "mcp";
   method: string;
   name: string;
 }
 
-export type Restriction = WebRestriction | McpRestriction;
+export type Restriction = WebRestriction | ApiRestriction | McpRestriction;
 
 export interface PaymentMethod {
   caip2_id: string;
@@ -67,8 +97,9 @@ export interface PaymentMethod {
   extra?: Record<string, string>;
 }
 
-export interface AiCrawler {
+export interface Bot {
   user_agent: string;
+  force_200?: boolean;
 }
 
 export interface FacilitatorConfig {
@@ -77,4 +108,3 @@ export interface FacilitatorConfig {
   settleHeaders?: Record<string, string>;
   supportedHeaders?: Record<string, string>;
 }
-

@@ -1,31 +1,29 @@
-import type { HTTPRequestContext, HTTPProcessResult, ProcessSettleResultResponse, x402HTTPResourceServer } from "@x402/core/server";
+import type { HTTPRequestContext, ProcessSettleResultResponse } from "@x402/core/server";
 import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
 
-import type { HostConfig, RequestAdapter } from "./types";
+import { formatApiPaymentError } from "./api";
+import { noPaymentRequired } from "./config";
 import type { WorkerCore } from "./index";
+import { logEvent } from "./telemetry";
+import type { ProcessRequestResult, RequestAdapter, RequestMetadata } from "./types";
+import { formatWebPaymentError } from "./web";
 
-function matchesHost(hostConfig: HostConfig, hostname: string): boolean {
-  const expected = hostConfig.subdomain
-    ? `${hostConfig.subdomain}.${hostConfig.host}`
-    : hostConfig.host;
-  return hostname.toLowerCase() === expected.toLowerCase();
+function settlementFailure(
+  reason: string,
+  network: PaymentRequirements["network"],
+): ProcessSettleResultResponse {
+  return { success: false, errorReason: reason, network, transaction: "" };
 }
 
 export async function handlePaymentRequest(
   core: WorkerCore,
-  httpServer: x402HTTPResourceServer,
   adapter: RequestAdapter,
+  metadata: RequestMetadata,
   pathOverride?: string,
-): Promise<HTTPProcessResult> {
-  const userAgent = adapter.getUserAgent();
-  if (!userAgent || !(await core.aiCrawlers.isAiCrawler(userAgent))) {
-    return { type: "no-payment-required" };
-  }
-
-  // Check if the request hostname matches the configured host
-  const hostConfig = await core.hostConfig.get();
-  if (!hostConfig || !matchesHost(hostConfig, adapter.getHost())) {
-    return { type: "no-payment-required" };
+): Promise<ProcessRequestResult> {
+  const httpServer = await core.httpServer.get();
+  if (!httpServer) {
+    return noPaymentRequired(metadata);
   }
 
   const path = pathOverride ?? adapter.getPath();
@@ -40,20 +38,52 @@ export async function handlePaymentRequest(
   };
 
   if (!httpServer.requiresPayment(paymentContext)) {
-    return { type: "no-payment-required" };
+    return noPaymentRequired(metadata);
   }
 
   const result = await httpServer.processHTTPRequest(paymentContext, undefined);
+  result.metadata = metadata;
 
   if (result.type === "payment-error") {
-    await logEvent(core, adapter, result.response.status);
+    await logEvent(core, adapter, result.response.status, metadata.request_id);
+  }
 
-    // Return 200 with paywall HTML for ChatGPT/Claude so they render it
-    // instead of ignoring a 402 error
-    const ua = userAgent.toLowerCase();
-    if (ua.includes("chatgpt") || ua.includes("claude")) {
-      result.response.status = 200;
+  return result;
+}
+
+export async function handleRequest(
+  core: WorkerCore,
+  adapter: RequestAdapter,
+  metadata: RequestMetadata,
+): Promise<ProcessRequestResult> {
+  const userAgent = adapter.getUserAgent();
+  const bot = userAgent ? await core.bots.matchBot(userAgent) : null;
+  if (!bot) {
+    return noPaymentRequired(metadata);
+  }
+
+  const result = await handlePaymentRequest(core, adapter, metadata);
+
+  if (result.type !== "payment-error") {
+    return result;
+  }
+
+  const [paymentMethods, hostConfig] = await Promise.all([
+    core.paymentMethods.get(),
+    core.hostConfig.get(),
+  ]);
+  const legalUrl = hostConfig?.legalUrl;
+
+  if (paymentMethods.length > 0) {
+    if (result.restriction.type === "api") {
+      formatApiPaymentError(result, result.restriction, paymentMethods, legalUrl);
+    } else if (result.restriction.type === "web") {
+      formatWebPaymentError(result, result.restriction, paymentMethods, adapter, legalUrl);
     }
+  }
+
+  if (bot.force_200) {
+    result.response.status = 200;
   }
 
   return result;
@@ -61,20 +91,20 @@ export async function handlePaymentRequest(
 
 export async function handleSettlement(
   core: WorkerCore,
-  httpServer: x402HTTPResourceServer,
   adapter: RequestAdapter,
   paymentPayload: PaymentPayload,
   paymentRequirements: PaymentRequirements,
   upstreamStatusCode: number,
+  requestId: string,
 ): Promise<ProcessSettleResultResponse> {
+  const httpServer = await core.httpServer.get();
+  if (!httpServer) {
+    return settlementFailure("Server not initialized", paymentRequirements.network);
+  }
+
   if (upstreamStatusCode >= 400) {
-    await logEvent(core, adapter, upstreamStatusCode);
-    return {
-      success: false,
-      errorReason: "Upstream error",
-      network: paymentRequirements.network,
-      transaction: "",
-    };
+    await logEvent(core, adapter, upstreamStatusCode, requestId);
+    return settlementFailure("Upstream error", paymentRequirements.network);
   }
 
   const result = await httpServer.processSettlement(
@@ -82,37 +112,12 @@ export async function handleSettlement(
     paymentRequirements,
   );
 
-  if (!result.success) {
-    core.errorReporter.captureException(
-      new Error(`Settlement failed: ${result.errorReason}`),
-    );
-    await logEvent(core, adapter, 402);
-  } else {
+  if (result.success) {
     const paymentResponse = result.headers["PAYMENT-RESPONSE"];
-    if (!paymentResponse) {
-      throw new Error("Missing PAYMENT-RESPONSE header after successful settlement");
-    }
-    await logEvent(
-      core,
-      adapter,
-      upstreamStatusCode,
-      paymentResponse,
-    );
+    await logEvent(core, adapter, upstreamStatusCode, requestId, paymentResponse);
+  } else {
+    await logEvent(core, adapter, 402, requestId);
   }
 
   return result;
-}
-
-async function logEvent(
-  core: WorkerCore,
-  adapter: RequestAdapter,
-  statusCode: number,
-  paymentResponse?: string,
-): Promise<void> {
-  const payload = core.buildEventPayload(
-    adapter,
-    statusCode,
-    paymentResponse,
-  );
-  await core.sendEvent(payload);
 }

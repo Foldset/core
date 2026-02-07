@@ -1,51 +1,35 @@
-import type { PaymentRequired } from "@x402/core/types";
-import type { PaywallConfig } from "@x402/core/server";
+import type { PaymentMethod, Restriction } from "./types";
 
-export function generatePaywallHtml(paymentRequired: PaymentRequired, config?: PaywallConfig): string {
-  const resource = paymentRequired.resource;
-  const description = resource?.description ?? "This resource requires payment";
-  const url = resource?.url ?? config?.currentUrl ?? "";
-  const accepts = paymentRequired.accepts ?? [];
-
-  // Group payment options by blockchain network (e.g., Base Mainnet, Solana Mainnet)
-  const optionsByNetwork = new Map<string, typeof accepts>();
-  for (const accept of accepts) {
-    const existing = optionsByNetwork.get(accept.network) ?? [];
-    existing.push(accept);
-    optionsByNetwork.set(accept.network, existing);
+export function generatePaywallHtml(
+  restriction: Restriction,
+  paymentMethods: PaymentMethod[],
+  url: string,
+  legalUrl?: string,
+): string {
+  // Group payment methods by network
+  const methodsByNetwork = new Map<string, PaymentMethod[]>();
+  for (const pm of paymentMethods) {
+    const existing = methodsByNetwork.get(pm.caip2_id) ?? [];
+    existing.push(pm);
+    methodsByNetwork.set(pm.caip2_id, existing);
   }
 
-  const paymentOptionsHtml = Array.from(optionsByNetwork.entries()).map(([_network, networkOptions]) => {
-    // Chain display name (e.g., "Base Mainnet", "Solana Mainnet")
-    const chainDisplayName = networkOptions[0].extra?.["chainDisplayName"] as string ?? "Unknown Network";
-    const chainCaip2Id = networkOptions[0].network;
+  const paymentOptionsHtml = Array.from(methodsByNetwork.values()).map((methods) => {
+    const chainDisplayName = methods[0].chain_display_name;
+    const chainCaip2Id = methods[0].caip2_id;
+    const recipientAddress = methods[0].circle_wallet_address;
 
-    // Recipient wallet address (where payments are sent)
-    const recipientAddresses = Array.from(new Set(networkOptions.map((opt) => opt.payTo)));
-    const recipientAddress = recipientAddresses[0] ?? "";
-
-    // Build list of accepted tokens for this network
-    const acceptedTokensHtml = networkOptions.map((accept) => {
-      // Token display name (e.g., "USD Coin", "USDC")
-      const tokenDisplayName = accept.extra?.["assetDisplayName"] as string ?? "Unknown Token";
-      // Token contract address (e.g., "0x833589fCD6eDb6E08f4c7C32D4f71b54bdA02913" for USDC on Base)
-      const tokenContractAddress = accept.asset;
-      // Amount in token's smallest unit (e.g., for USDC with 6 decimals: 1000000 = $1.00)
-      const rawTokenAmount = accept.amount;
-      const rawPrice = accept.extra?.["price"] as string ?? "Unknown Price";
-
-      // Capitalize first letter of scheme
-      const scheme =
-        accept.scheme
-          .toLowerCase()
-          .replace(/^./, c => c.toUpperCase());
+    const acceptedTokensHtml = methods.map((pm) => {
+      const scheme = restriction.scheme
+        .toLowerCase()
+        .replace(/^./, c => c.toUpperCase());
 
       return `
         <div class="token-row">
-          <span class="token-name">${tokenDisplayName}</span>
+          <span class="token-name">${pm.asset_display_name}</span>
           <span class="token-details">
             <span class="token-scheme">${scheme}</span>
-            <span class="token-price">$${rawPrice}</span>
+            <span class="token-price">$${restriction.price}</span>
           </span>
         </div>`;
     }).join("");
@@ -101,7 +85,7 @@ export function generatePaywallHtml(paymentRequired: PaymentRequired, config?: P
 
   <div class="resource">
     <div class="resource-row"><strong>URL</strong> <code>${url}</code></div>
-    <div class="resource-row"><strong>Description</strong> ${description}</div>
+    <div class="resource-row"><strong>Description</strong> ${restriction.description}</div>${legalUrl ? `\n    <div class="resource-row"><strong>Terms</strong> <a href="${legalUrl}">${legalUrl}</a></div>` : ""}
   </div>
 
   <h2>Payment Options</h2>

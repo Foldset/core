@@ -1,93 +1,100 @@
 import { HTTPFacilitatorClient } from "@x402/core/server";
-import type { HostConfig, Restriction, PaymentMethod, AiCrawler, FacilitatorConfig } from "./types";
 
-import type { ConfigStore } from "./types";
+import { version as PACKAGE_VERSION } from "../package.json";
+import type {
+  Bot,
+  ConfigStore,
+  FacilitatorConfig,
+  HostConfig,
+  PaymentMethod,
+  ProcessRequestResult,
+  RequestMetadata,
+  Restriction,
+} from "./types";
 
-const CACHE_TTL_MS = 30_000;
+export const CACHE_TTL_MS = 30_000;
+
+export const API_BASE_URL = "https://api.foldset.com";
+
+export function buildRequestMetadata(): RequestMetadata {
+  return {
+    version: PACKAGE_VERSION,
+    request_id: crypto.randomUUID(),
+    timestamp: new Date().toISOString(),
+  };
+}
+
+export function noPaymentRequired(metadata: RequestMetadata): ProcessRequestResult {
+  return { type: "no-payment-required", metadata };
+}
 
 export class CachedConfigManager<T> {
-  protected cached: T | null = null;
+  protected cached: T;
   protected cacheTimestamp = 0;
 
   constructor(
     protected configStore: ConfigStore,
     protected key: string,
-  ) { }
-
-  protected isCacheValid(): boolean {
-    return this.cached !== null && Date.now() - this.cacheTimestamp < CACHE_TTL_MS;
+    protected fallback: T,
+  ) {
+    this.cached = fallback;
   }
 
-  protected updateCache(value: T | null): void {
-    this.cached = value;
-    this.cacheTimestamp = Date.now();
+  protected isCacheValid(): boolean {
+    return this.cacheTimestamp > 0 && Date.now() - this.cacheTimestamp < CACHE_TTL_MS;
   }
 
   protected deserialize(raw: string): T {
     return JSON.parse(raw) as T;
   }
 
-  async get(): Promise<T | null> {
+  async get(): Promise<T> {
     if (this.isCacheValid()) return this.cached;
     const raw = await this.configStore.get(this.key);
-    this.updateCache(raw ? this.deserialize(raw) : null);
+    this.cached = raw ? this.deserialize(raw) : this.fallback;
+    this.cacheTimestamp = Date.now();
     return this.cached;
   }
 }
 
-export class HostConfigManager extends CachedConfigManager<HostConfig> {
+export class HostConfigManager extends CachedConfigManager<HostConfig | null> {
   constructor(store: ConfigStore) {
-    super(store, "host-config");
+    super(store, "host-config", null);
   }
 }
 
 export class RestrictionsManager extends CachedConfigManager<Restriction[]> {
   constructor(store: ConfigStore) {
-    super(store, "restrictions");
+    super(store, "restrictions", []);
   }
 }
 
 export class PaymentMethodsManager extends CachedConfigManager<PaymentMethod[]> {
   constructor(store: ConfigStore) {
-    super(store, "payment-methods");
+    super(store, "payment-methods", []);
   }
 }
 
-export class AiCrawlersManager extends CachedConfigManager<AiCrawler[]> {
+export class BotsManager extends CachedConfigManager<Bot[]> {
   constructor(store: ConfigStore) {
-    super(store, "ai-crawlers");
+    super(store, "bots", []);
   }
 
-  protected override isCacheValid(): boolean {
-    return (
-      this.cached !== null &&
-      this.cached.length > 0 &&
-      Date.now() - this.cacheTimestamp < CACHE_TTL_MS
-    );
+  protected override deserialize(raw: string): Bot[] {
+    const parsed: Bot[] = JSON.parse(raw);
+    return parsed.map((b) => ({ ...b, user_agent: b.user_agent.toLowerCase() }));
   }
 
-  protected override deserialize(raw: string): AiCrawler[] {
-    const parsed: AiCrawler[] = JSON.parse(raw);
-    return parsed.map((c) => ({ user_agent: c.user_agent.toLowerCase() }));
-  }
-
-  override async get(): Promise<AiCrawler[]> {
-    if (this.isCacheValid()) return this.cached!;
-    const raw = await this.configStore.get(this.key);
-    this.updateCache(raw ? this.deserialize(raw) : []);
-    return this.cached!;
-  }
-
-  async isAiCrawler(userAgent: string): Promise<boolean> {
-    const crawlers = await this.get();
+  async matchBot(userAgent: string): Promise<Bot | null> {
+    const bots = await this.get();
     const ua = userAgent.toLowerCase();
-    return crawlers.some((crawler) => ua.includes(crawler.user_agent));
+    return bots.find((bot) => ua.includes(bot.user_agent)) ?? null;
   }
 }
 
-export class FacilitatorManager extends CachedConfigManager<HTTPFacilitatorClient> {
+export class FacilitatorManager extends CachedConfigManager<HTTPFacilitatorClient | null> {
   constructor(store: ConfigStore) {
-    super(store, "facilitator");
+    super(store, "facilitator", null);
   }
 
   protected override deserialize(raw: string): HTTPFacilitatorClient {
@@ -106,30 +113,5 @@ export class FacilitatorManager extends CachedConfigManager<HTTPFacilitatorClien
         }),
       }),
     });
-  }
-
-}
-
-export class ApiKeyManager extends CachedConfigManager<string> {
-  private staticKey: string | null;
-
-  constructor(storeOrKey: ConfigStore | string) {
-    if (typeof storeOrKey === "string") {
-      super({ get: async () => null }, "api-key");
-      this.staticKey = storeOrKey;
-    } else {
-      super(storeOrKey, "api-key");
-      this.staticKey = null;
-    }
-  }
-
-  // If storing api key in a config store, store the raw value, not a json version of it
-  protected override deserialize(raw: string): string {
-    return raw;
-  }
-
-  override async get(): Promise<string | null> {
-    if (this.staticKey !== null) return this.staticKey;
-    return super.get();
   }
 }

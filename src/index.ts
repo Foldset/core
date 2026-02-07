@@ -1,79 +1,106 @@
-import type { ConfigStore, RequestAdapter, EventPayload, ErrorReporter } from "./types";
-import { consoleErrorReporter } from "./types";
-import {
-  HostConfigManager,
-  RestrictionsManager,
-  PaymentMethodsManager,
-  AiCrawlersManager,
-  FacilitatorManager,
-  ApiKeyManager,
-} from "./config";
-import { HttpServerManager } from "./server";
-import { buildEventPayload, sendEvent } from "./telemetry";
+import type { ProcessSettleResultResponse } from "@x402/core/server";
+import type { PaymentPayload, PaymentRequirements } from "@x402/core/types";
 
-export interface WorkerCoreOptions {
-  apiKey?: string;
-  errorReporter?: ErrorReporter;
-}
+import {
+  BotsManager,
+  HostConfigManager,
+  PaymentMethodsManager,
+  RestrictionsManager,
+  buildRequestMetadata,
+} from "./config";
+import { handleRequest, handleSettlement } from "./handler";
+import { handleMcpRequest } from "./mcp";
+import { HttpServerManager } from "./server";
+import { createRedisStore, fetchRedisCredentials } from "./store";
+import type {
+  ConfigStore,
+  FoldsetOptions,
+  ProcessRequestResult,
+  RequestAdapter,
+} from "./types";
+
+let cachedCore: WorkerCore | null = null;
 
 export class WorkerCore {
   readonly hostConfig: HostConfigManager;
   readonly restrictions: RestrictionsManager;
   readonly paymentMethods: PaymentMethodsManager;
-  readonly aiCrawlers: AiCrawlersManager;
-  readonly facilitator: FacilitatorManager;
-  readonly apiKey: ApiKeyManager;
+  readonly bots: BotsManager;
+  readonly apiKey: string;
   readonly httpServer: HttpServerManager;
-  readonly errorReporter: ErrorReporter;
 
-  constructor(store: ConfigStore, options?: WorkerCoreOptions) {
+  constructor(store: ConfigStore, apiKey: string) {
     this.hostConfig = new HostConfigManager(store);
     this.restrictions = new RestrictionsManager(store);
     this.paymentMethods = new PaymentMethodsManager(store);
-    this.aiCrawlers = new AiCrawlersManager(store);
-    this.facilitator = new FacilitatorManager(store);
-    this.apiKey = new ApiKeyManager(options?.apiKey ?? store);
-    this.errorReporter = options?.errorReporter ?? consoleErrorReporter;
-
-    this.httpServer = new HttpServerManager(
-      this.hostConfig,
-      this.restrictions,
-      this.paymentMethods,
-      this.facilitator,
-    );
+    this.bots = new BotsManager(store);
+    this.apiKey = apiKey;
+    this.httpServer = new HttpServerManager(store);
   }
 
-  buildEventPayload(
+  static async fromOptions(options: FoldsetOptions): Promise<WorkerCore> {
+    if (cachedCore) return cachedCore;
+
+    const credentials = options.redisCredentials ?? (await fetchRedisCredentials(options.apiKey));
+    const store = createRedisStore(credentials);
+    cachedCore = new WorkerCore(store, options.apiKey);
+
+    return cachedCore;
+  }
+
+  async processRequest(adapter: RequestAdapter): Promise<ProcessRequestResult> {
+    const metadata = buildRequestMetadata();
+    const hostConfig = await this.hostConfig.get();
+    const mcpEndpoint = hostConfig?.mcpEndpoint;
+
+    if (mcpEndpoint && adapter.getPath() === mcpEndpoint) {
+      return handleMcpRequest(this, adapter, mcpEndpoint, metadata);
+    }
+
+    return handleRequest(this, adapter, metadata);
+  }
+
+  async processSettlement(
     adapter: RequestAdapter,
-    statusCode: number,
-    paymentResponse?: string,
-  ): EventPayload {
-    return buildEventPayload(adapter, statusCode, paymentResponse);
-  }
-
-  async sendEvent(payload: EventPayload): Promise<void> {
-    const key = await this.apiKey.get();
-    if (!key) return;
-    await sendEvent(key, payload, this.errorReporter);
+    paymentPayload: PaymentPayload,
+    paymentRequirements: PaymentRequirements,
+    upstreamStatusCode: number,
+    requestId: string,
+  ): Promise<ProcessSettleResultResponse> {
+    return handleSettlement(
+      this,
+      adapter,
+      paymentPayload,
+      paymentRequirements,
+      upstreamStatusCode,
+      requestId,
+    );
   }
 }
 
 // Types
 export type {
+  ApiRestriction,
+  Bot,
+  ConfigStore,
+  ErrorReport,
+  EventPayload,
+  FacilitatorConfig,
+  FoldsetOptions,
   HostConfig,
+  McpRestriction,
+  PaymentMethod,
+  ProcessRequestResult,
+  RequestAdapter,
+  RequestMetadata,
+  Restriction,
   RestrictionBase,
   WebRestriction,
-  McpRestriction,
-  Restriction,
-  PaymentMethod,
-  AiCrawler,
-  FacilitatorConfig,
-  ConfigStore,
-  RequestAdapter,
-  EventPayload,
-  ErrorReporter,
 } from "./types";
-export { consoleErrorReporter } from "./types";
+
+// Store
+export { createRedisStore, fetchRedisCredentials } from "./store";
+export type { RedisCredentials } from "./store";
 
 // Paywall
 export { generatePaywallHtml } from "./paywall";
@@ -83,13 +110,12 @@ export { buildRoutesConfig, priceToAmount } from "./routes";
 
 // Config managers
 export {
+  BotsManager,
   CachedConfigManager,
-  HostConfigManager,
-  RestrictionsManager,
-  PaymentMethodsManager,
-  AiCrawlersManager,
   FacilitatorManager,
-  ApiKeyManager,
+  HostConfigManager,
+  PaymentMethodsManager,
+  RestrictionsManager,
 } from "./config";
 
 // Server
@@ -97,13 +123,21 @@ export { HttpServerManager } from "./server";
 
 // MCP
 export {
-  parseMcpRequest,
-  getMcpRouteKey,
-  isMcpListMethod,
-  getMcpListPaymentRequirements,
   buildJsonRpcError,
+  buildMcpRouteKey,
+  buildMcpRoutesConfig,
+  getMcpListPaymentRequirements,
+  getMcpRouteKey,
+  handleMcpRequest,
+  isMcpListMethod,
+  parseMcpRequest,
 } from "./mcp";
-export type { JsonRpcRequest, McpPaymentRequirement, JsonRpcError } from "./mcp";
+export type { JsonRpcError, JsonRpcRequest, McpPaymentRequirement } from "./mcp";
+
+// Telemetry
+export { buildEventPayload, logEvent, reportError, sendEvent } from "./telemetry";
 
 // Handlers
-export { handlePaymentRequest, handleSettlement } from "./handler";
+export { handlePaymentRequest, handleRequest, handleSettlement } from "./handler";
+export { formatApiPaymentError } from "./api";
+export { formatWebPaymentError } from "./web";

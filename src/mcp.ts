@@ -1,5 +1,18 @@
-import type { McpRestriction, Restriction, PaymentMethod } from "./types";
-import { priceToAmount } from "./routes";
+import type { RoutesConfig } from "@x402/core/http";
+
+import { noPaymentRequired } from "./config";
+import { handlePaymentRequest } from "./handler";
+import type { WorkerCore } from "./index";
+import { buildRouteEntry, priceToAmount } from "./routes";
+import { logEvent } from "./telemetry";
+import type {
+  McpRestriction,
+  PaymentMethod,
+  ProcessRequestResult,
+  RequestAdapter,
+  RequestMetadata,
+  Restriction,
+} from "./types";
 
 export interface JsonRpcRequest {
   jsonrpc: string;
@@ -8,9 +21,6 @@ export interface JsonRpcRequest {
   params?: Record<string, unknown>;
 }
 
-/**
- * Mapping from MCP list methods to their corresponding call method.
- */
 const MCP_LIST_CALL_METHODS: Record<string, string> = {
   "tools/list": "tools/call",
   "resources/list": "resources/read",
@@ -30,10 +40,32 @@ export function parseMcpRequest(body: unknown): JsonRpcRequest | null {
 }
 
 /**
- * Build the route key for an MCP request: "endpointPath/method:identifier".
- * Extracts the identifier from params.name (tools/call, prompts/get) or
- * params.uri (resources/read).
+ * Build the route key for an MCP restriction: "endpointPath/method:name".
  */
+export function buildMcpRouteKey(
+  endpointPath: string,
+  restriction: McpRestriction,
+): string {
+  return `${endpointPath}/${restriction.method}:${restriction.name}`;
+}
+
+export function buildMcpRoutesConfig(
+  restrictions: Restriction[],
+  paymentMethods: PaymentMethod[],
+  mcpEndpoint: string,
+  legalUrl?: string,
+): RoutesConfig {
+  const routesConfig: RoutesConfig = {};
+
+  for (const r of restrictions) {
+    if (r.type !== "mcp") continue;
+    const key = buildMcpRouteKey(mcpEndpoint, r);
+    routesConfig[key] = buildRouteEntry(r, paymentMethods, legalUrl);
+  }
+
+  return routesConfig;
+}
+
 export function getMcpRouteKey(
   endpointPath: string,
   method: string,
@@ -114,4 +146,62 @@ export function getMcpListPaymentRequirements(
       payTo: pm.circle_wallet_address,
     })),
   }));
+}
+
+export async function handleMcpRequest(
+  core: WorkerCore,
+  adapter: RequestAdapter,
+  mcpEndpoint: string,
+  metadata: RequestMetadata,
+): Promise<ProcessRequestResult> {
+  if (adapter.getMethod() !== "POST") {
+    return noPaymentRequired(metadata);
+  }
+
+  const body = await adapter.getBody();
+  const rpc = parseMcpRequest(body);
+  if (!rpc) {
+    return noPaymentRequired(metadata);
+  }
+
+  // List methods, pass through with payment requirements header
+  if (isMcpListMethod(rpc.method)) {
+    const [restrictions, paymentMethods] = await Promise.all([
+      core.restrictions.get(),
+      core.paymentMethods.get(),
+    ]);
+    // TODO rfradkin: We shouldn't really be regenerating this list each time,
+    // it should be every time requirements change
+    const requirements = getMcpListPaymentRequirements(
+      rpc.method,
+      restrictions,
+      paymentMethods,
+    );
+    const headers: Record<string, string> = {};
+    if (requirements.length > 0) {
+      headers["Payment-Required"] = JSON.stringify(requirements);
+    }
+    await logEvent(core, adapter, 200, metadata.request_id);
+    return { type: "no-payment-required", headers, metadata };
+  }
+
+  const routeKey = getMcpRouteKey(mcpEndpoint, rpc.method, rpc.params);
+  if (!routeKey) {
+    return noPaymentRequired(metadata);
+  }
+
+  const result = await handlePaymentRequest(core, adapter, metadata, routeKey);
+
+  if (result.type === "payment-error") {
+    const hostConfig = await core.hostConfig.get();
+    result.response.body = JSON.stringify(
+      buildJsonRpcError(rpc.id ?? null, 402, "Payment required", {
+        ...result.metadata,
+        ...(hostConfig?.legalUrl && { legal_url: hostConfig.legalUrl }),
+      }),
+    );
+    result.response.headers["Content-Type"] = "application/json";
+  }
+
+  return result;
 }
