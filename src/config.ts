@@ -1,6 +1,8 @@
 import { HTTPFacilitatorClient } from "@x402/core/server";
 
-import { version as PACKAGE_VERSION } from "../package.json";
+import packageJson from "../package.json" with { type: "json" };
+
+const PACKAGE_VERSION = packageJson.version;
 import type {
   Bot,
   ConfigStore,
